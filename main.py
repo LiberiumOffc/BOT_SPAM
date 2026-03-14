@@ -19,6 +19,7 @@ target_group = None
 total_messages = 0
 spam_mode = "text"
 image_urls = []
+bots_can_spam = False  # Статус могут ли боты спамить
 
 # ========== ЗАГРУЗКА КОНФИГА ==========
 def load_config():
@@ -61,6 +62,19 @@ def save_config():
 def clear_screen():
     os.system('clear' if os.name == 'posix' else 'cls')
 
+# ========== KALI LINUX BACKGROUND ==========
+KALI_BG = Fore.GREEN + """
+┌─────────────────────────────────────────┐
+│  ⚡ KALI LINUX ⚡                        │
+│  █▀▀ █▀▀ █░░ █▀▄ █▀▀ █░█ █░░ █▀▀ ▀█▀   │
+│  █▀░ █▀░ █░▄ █▀▄ █▀░ █▀█ █░▄ █▀░ ░█░    │
+│  ░░░ ░░░ ░░▀ ▀░▀ ▀▀▀ ▀░▀ ▀▀▀ ▀▀▀ ░▀░    │
+└─────────────────────────────────────────┘
+""" + Fore.RESET
+
+def print_kali_bg():
+    print(KALI_BG)
+
 # ========== СТИЛЬ КАК НА СКРИНЕ ==========
 def style_like_screen(text):
     colors = [94, 94, 96, 96, 94, 94, 96, 96]
@@ -82,26 +96,33 @@ BANNER_TEXT = """
 
 def print_banner():
     clear_screen()
+    print_kali_bg()
     lines = BANNER_TEXT.strip().split('\n')
     for line in lines:
         print(style_like_screen(line))
     print(Fore.CYAN + """
 ╔══════════════════════════════════════╗
-║         BOMB BOTNET v6.4             ║
-║         CLEAN PROGRESS BAR           ║
+║         BOMB BOTNET v6.6             ║
+║         CLEAN START + STATUS         ║
 ║            by @DADILK                ║
 ╚══════════════════════════════════════╝
 """ + Fore.RESET)
 
-# ========== ПРОГРЕСС БАР (ТОЛЬКО ОДНА СТРОКА) ==========
-def progress_bar(current, total, text="ЗАПУСК БОТОВ"):
-    """Прогресс бар который перезаписывает одну строку"""
+# ========== АНИМАЦИИ ==========
+def bomb_animation():
+    frames = ["     💣     ", "    💣      ", "   💣       ", "  💣        ", " 💣         ", "💣          ", "💥 БАБАХ! 💥"]
+    for frame in frames:
+        print(Fore.RED + Style.BRIGHT + f"\r{frame}", end="", flush=True)
+        time.sleep(0.15)
+    print()
+
+def progress_bar(current, total, text="ЗАГРУЗКА БОТОВ"):
+    """Прогресс бар на одной строке"""
     percent = int((current / total) * 100)
     bar_length = 30
     filled = int(bar_length * current / total)
     bar = "█" * filled + "░" * (bar_length - filled)
     
-    # Цвета для процентов
     if percent < 30:
         color = Fore.RED
     elif percent < 60:
@@ -111,27 +132,19 @@ def progress_bar(current, total, text="ЗАПУСК БОТОВ"):
     else:
         color = Fore.GREEN
     
-    # Печатаем только одну строку, перезаписывая её
     print(f"\r{Fore.CYAN}{text}: {color}[{bar}] {percent}%{Fore.RESET}", end="", flush=True)
     
     if current == total:
-        print()  # Переход на новую строку после завершения
-
-# ========== АНИМАЦИЯ БОМБЫ ==========
-def bomb_animation():
-    frames = ["     💣     ", "    💣      ", "   💣       ", "  💣        ", " 💣         ", "💣          ", "💥 БАБАХ! 💥"]
-    for frame in frames:
-        print(Fore.RED + Style.BRIGHT + f"\r{frame}", end="", flush=True)
-        time.sleep(0.15)
-    print()
+        print()  # Новая строка после завершения
 
 # ========== НАСТРОЙКА БОТОВ ==========
 async def setup_bots():
-    global clients
+    global clients, bots_can_spam
     clients = []
+    bots_can_spam = False
     
     print_banner()
-    print(Fore.YELLOW + f"\n🔧 ПОДГОТОВКА К ЗАПУСКУ...\n")
+    print(Fore.YELLOW + f"\n🔧 ЗАГРУЗКА БОТОВ...\n")
     
     if not BOT_TOKENS:
         print(Fore.RED + "❌ Нет токенов!")
@@ -141,8 +154,10 @@ async def setup_bots():
     total = len(BOT_TOKENS)
     successful = 0
     
+    # Прогресс бар при загрузке
     for i, token in enumerate(BOT_TOKENS):
         if not token or token == ".":
+            progress_bar(i + 1, total)
             continue
             
         try:
@@ -202,25 +217,31 @@ async def setup_bots():
             async def status_cmd(event):
                 me = await event.client.get_me()
                 mode_text = "🖼️ КАРТИНКИ" if spam_mode == "image" else "📝 ТЕКСТ"
+                can_spam = "✅ ДА" if bots_can_spam else "❌ НЕТ"
                 await event.reply(f"📊 **Статус**\n"
                                  f"🤖 @{me.username}\n"
                                  f"🔥 Режим: {mode_text}\n"
                                  f"⏱️ КД: {BURST_DELAY}с\n"
                                  f"💥 Атака: {'АКТИВНА' if bomb_active else 'ОЖИДАНИЕ'}\n"
-                                 f"📨 Отправлено: {total_messages}")
+                                 f"📨 Отправлено: {total_messages}\n"
+                                 f"⚡ Могут спамить: {can_spam}")
             
             clients.append(client)
             successful += 1
             
         except Exception as e:
-            pass  # Не показываем ошибки в прогрессе
+            pass  # Не показываем ошибки
         
         # Обновляем прогресс бар
         progress_bar(i + 1, total)
-        await asyncio.sleep(0.1)  # Небольшая задержка для визуала
+        await asyncio.sleep(0.05)
+    
+    # Стираем прогресс бар и показываем результат
+    print("\033[2K\r", end="")  # Стираем строку прогресса
     
     if clients:
-        print(Fore.GREEN + f"\n✅ ЗАПУЩЕНО БОТОВ: {successful}/{total}")
+        bots_can_spam = True
+        print(Fore.GREEN + f"✅ ЗАПУЩЕНО БОТОВ: {successful}/{total}")
         print(Fore.CYAN + "\n🔥 БОТНЕТ АКТИВЕН 🔥")
         print("📱 Добавь ботов в группы")
         print("💣 Введи /bomb в группе для атаки")
@@ -229,12 +250,13 @@ async def setup_bots():
         
         await asyncio.gather(*[client.run_until_disconnected() for client in clients])
     else:
-        print(Fore.RED + "\n❌ Не удалось запустить ни одного бота!")
+        bots_can_spam = False
+        print(Fore.RED + "❌ Не удалось запустить ни одного бота!")
         input(Fore.CYAN + "\nНажми Enter...")
 
 # ========== ФУНКЦИЯ СПАМА ==========
 async def spam_group(chat_id):
-    global bomb_active, total_messages
+    global bomb_active, total_messages, bots_can_spam
     
     while bomb_active:
         tasks = []
@@ -255,11 +277,13 @@ async def spam_group(chat_id):
                 sent = sum(1 for r in results if not isinstance(r, Exception))
                 total_messages += sent
                 mode_icon = "🖼️" if spam_mode == "image" else "💥"
+                bots_can_spam = True
                 print(Fore.RED + f"\r{mode_icon} БОМБАРДИРОВКА: {total_messages} | Ботов: {sent} | КД: {BURST_DELAY}с", end="", flush=True)
             except FloodWaitError as e:
                 print(Fore.YELLOW + f"\n⏳ Флуд контроль: ждём {e.seconds}с")
                 await asyncio.sleep(e.seconds)
             except:
+                bots_can_spam = False
                 pass
         
         await asyncio.sleep(BURST_DELAY)
@@ -268,7 +292,8 @@ async def spam_group(chat_id):
 def show_menu():
     print_banner()
     mode_display = "🖼️ КАРТИНКИ" if spam_mode == "image" else "📝 ТЕКСТ"
-    print(Fore.CYAN + f"\n📋 ГЛАВНОЕ МЕНЮ (Режим: {mode_display} | КД: {BURST_DELAY}с):\n")
+    can_spam = "✅ ДА" if bots_can_spam else "❌ НЕТ"
+    print(Fore.CYAN + f"\n📋 ГЛАВНОЕ МЕНЮ (Режим: {mode_display} | КД: {BURST_DELAY}с | Спам: {can_spam}):\n")
     print(Fore.WHITE + "1. 🚀 ЗАПУСТИТЬ БОТНЕТ")
     print("2. 🤖 ДОБАВИТЬ ТОКЕН")
     print("3. 👀 ПОСМОТРЕТЬ ТОКЕНЫ")
@@ -451,6 +476,8 @@ def show_status():
     print(f"⏱️ КД: {BURST_DELAY}с")
     print(f"💥 Атака активна: {'ДА' if bomb_active else 'НЕТ'}")
     print(f"📨 Всего отправлено: {total_messages}")
+    can_spam = "✅ МОГУТ СПАМИТЬ" if bots_can_spam else "❌ НЕ МОГУТ СПАМИТЬ"
+    print(f"⚡ Статус ботов: {can_spam}")
     input(Fore.CYAN + "\nНажми Enter...")
 
 # ========== ИНСТРУКЦИЯ ==========
@@ -463,6 +490,7 @@ def show_help():
     print("   • /bomb - атака")
     print("   • /stop - стоп")
     print("   • /status - статус")
+    print("4️⃣ В статусе видно могут ли боты спамить")
     input(Fore.CYAN + "\nНажми Enter...")
 
 # ========== ГЛАВНАЯ ==========
@@ -474,7 +502,7 @@ async def main():
         choice = input(Fore.CYAN + "👉 Выбери пункт: ").strip()
         
         if choice == "1":
-            await setup_bots()
+            await setup_bots()  # Здесь меню стирается и показывается только прогресс
         elif choice == "2":
             add_token()
         elif choice == "3":
