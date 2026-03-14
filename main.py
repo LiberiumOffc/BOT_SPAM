@@ -4,6 +4,7 @@ import time
 import json
 from telethon import TelegramClient, events
 from telethon.errors import FloodWaitError
+from telethon.tl.types import MessageMediaPhoto
 from colorama import Fore, init, Style
 
 init(autoreset=True)
@@ -16,11 +17,13 @@ clients = []
 bomb_active = False
 target_group = None
 total_messages = 0
+spam_mode = "text"  # "text" или "image"
+image_urls = []
 
 # ========== ЗАГРУЗКА/СОХРАНЕНИЕ КОНФИГА ==========
 def load_config():
     """Загружает настройки из файла"""
-    global API_ID, API_HASH, BOT_TOKENS, MESSAGE, BURST_DELAY
+    global API_ID, API_HASH, BOT_TOKENS, MESSAGE, BURST_DELAY, spam_mode, image_urls
     
     try:
         with open(CONFIG_FILE, 'r') as f:
@@ -30,6 +33,8 @@ def load_config():
             BOT_TOKENS = config.get('bot_tokens', [])
             MESSAGE = config.get('message', '💥')
             BURST_DELAY = config.get('burst_delay', 0.05)
+            spam_mode = config.get('spam_mode', 'text')
+            image_urls = config.get('image_urls', [])
             print(Fore.GREEN + f"✅ Конфиг загружен: {len(BOT_TOKENS)} ботов")
             return True
     except FileNotFoundError:
@@ -39,6 +44,8 @@ def load_config():
         BOT_TOKENS = []
         MESSAGE = "💥"
         BURST_DELAY = 0.05
+        spam_mode = "text"
+        image_urls = []
         return False
     except Exception as e:
         print(Fore.RED + f"❌ Ошибка загрузки: {e}")
@@ -51,7 +58,9 @@ def save_config():
         'api_hash': API_HASH,
         'bot_tokens': BOT_TOKENS,
         'message': MESSAGE,
-        'burst_delay': BURST_DELAY
+        'burst_delay': BURST_DELAY,
+        'spam_mode': spam_mode,
+        'image_urls': image_urls
     }
     try:
         with open(CONFIG_FILE, 'w') as f:
@@ -86,42 +95,116 @@ def bomb_animation():
         time.sleep(0.2)
     print(Fore.RED + Style.BRIGHT + "\r💥 BOMB LAUNCHED! 💥")
 
-# ========== БАННЕР ==========
-BANNER = Fore.RED + Style.BRIGHT + """
+# ========== ГРАДИЕНТНЫЙ БАННЕР (КРАСНЫЙ) ==========
+def gradient_red(text, step=0):
+    """Красный градиент"""
+    colors = [91, 91, 92, 93, 94, 95, 96, 97, 91, 92, 93, 94, 95, 96]
+    result = ""
+    for i, char in enumerate(text):
+        color_code = colors[(i + step) % len(colors)]
+        result += f"\033[{color_code}m{char}"
+    return result + "\033[0m"
+
+BANNER = """
 ██████╗░░█████╗░███╗░░░███╗██████╗░
 ██╔══██╗██╔══██╗████╗░████║██╔══██╗
 ██████╦╝██║░░██║██╔████╔██║██████╦╝
 ██╔══██╗██║░░██║██║╚██╔╝██║██╔══██╗
 ██████╦╝╚█████╔╝██║░╚═╝░██║██████╦╝
 ╚═════╝░░╚════╝░╚═╝░░░░░╚═╝╚═════╝░
-""" + Fore.CYAN + """
+"""
+
+def print_banner():
+    clear_screen()
+    lines = BANNER.strip().split('\n')
+    for i, line in enumerate(lines):
+        print(gradient_red(line, i * 3))
+    print(Fore.CYAN + """
 ╔══════════════════════════════════════╗
-║         BOMB BOTNET v4.0             ║
-║      С СОХРАНЕНИЕМ + ЧЁТКИЙ СЧЁТ     ║
+║         BOMB BOTNET v5.0             ║
+║      ГРАДИЕНТ + КАРТИНКИ             ║
 ║            by @DADILK                ║
 ╚══════════════════════════════════════╝
-""" + Fore.RESET
+""" + Fore.RESET)
 
 # ========== МЕНЮ ==========
 def show_menu():
-    clear_screen()
-    print(BANNER)
-    print(Fore.CYAN + "\n📋 ГЛАВНОЕ МЕНЮ:\n")
+    print_banner()
+    mode_display = "🖼️ КАРТИНКИ" if spam_mode == "image" else "📝 ТЕКСТ"
+    print(Fore.CYAN + f"\n📋 ГЛАВНОЕ МЕНЮ (Режим: {mode_display}):\n")
     print(Fore.WHITE + "1. 🚀 ЗАПУСТИТЬ БОТНЕТ")
-    print("2. 🤖 ДОБАВИТЬ ТОКЕН БОТА (1 токен = 1 бот)")
+    print("2. 🤖 ДОБАВИТЬ ТОКЕН БОТА")
     print("3. 👀 ПОСМОТРЕТЬ ТОКЕНЫ")
     print("4. 🗑️ УДАЛИТЬ ТОКЕН")
     print("5. ⚙️ НАСТРОЙКИ API")
-    print("6. 📊 СТАТУС")
-    print("7. 🧹 ОЧИСТИТЬ ЭКРАН")
-    print("8. 📖 ИНСТРУКЦИЯ")
+    print("6. ✏️ ИЗМЕНИТЬ ТЕКСТ СООБЩЕНИЯ")
+    print("7. 🖼️ РЕЖИМ СПАМА (текст/картинки)")
+    print("8. 📸 ДОБАВИТЬ ССЫЛКУ НА КАРТИНКУ")
+    print("9. 📊 СТАТУС")
+    print("10. 🧹 ОЧИСТИТЬ ЭКРАН")
+    print("11. 📖 ИНСТРУКЦИЯ")
     print("0. 🚪 ВЫХОД\n")
-    print(Fore.YELLOW + f"🤖 Всего ботов в конфиге: {len(BOT_TOKENS)}")
+    print(Fore.YELLOW + f"🤖 Ботов: {len(BOT_TOKENS)} | 📸 Картинок: {len(image_urls)}")
+
+# ========== ИЗМЕНИТЬ ТЕКСТ ==========
+def edit_message():
+    global MESSAGE
+    print_banner()
+    print(Fore.YELLOW + "✏️ ИЗМЕНЕНИЕ ТЕКСТА СООБЩЕНИЯ\n")
+    print(f"Текущий текст: {MESSAGE}")
+    new_message = input("Новый текст: ").strip()
+    if new_message:
+        MESSAGE = new_message
+        save_config()
+        print(Fore.GREEN + f"✅ Текст изменён на: {MESSAGE}")
+    else:
+        print(Fore.RED + "❌ Текст не может быть пустым")
+    input(Fore.CYAN + "\nНажми Enter...")
+
+# ========== ПЕРЕКЛЮЧЕНИЕ РЕЖИМА ==========
+def toggle_spam_mode():
+    global spam_mode
+    print_banner()
+    print(Fore.YELLOW + "🖼️ РЕЖИМ СПАМА\n")
+    print(f"Текущий режим: {'🖼️ КАРТИНКИ' if spam_mode == 'image' else '📝 ТЕКСТ'}")
+    print("\n1. 📝 Текстовый режим")
+    print("2. 🖼️ Режим картинок")
+    print("0. ❌ Отмена")
+    
+    choice = input(Fore.CYAN + "\nВыбери режим: ").strip()
+    if choice == "1":
+        spam_mode = "text"
+        save_config()
+        print(Fore.GREEN + "✅ Режим изменён на ТЕКСТОВЫЙ")
+    elif choice == "2":
+        if not image_urls:
+            print(Fore.YELLOW + "⚠️ Сначала добавь ссылки на картинки!")
+        else:
+            spam_mode = "image"
+            save_config()
+            print(Fore.GREEN + "✅ Режим изменён на КАРТИНКИ")
+    input(Fore.CYAN + "\nНажми Enter...")
+
+# ========== ДОБАВЛЕНИЕ КАРТИНКИ ==========
+def add_image_url():
+    global image_urls
+    print_banner()
+    print(Fore.YELLOW + "📸 ДОБАВЛЕНИЕ ССЫЛКИ НА КАРТИНКУ\n")
+    print("Поддерживаются ссылки на .jpg .png .gif")
+    print("Пример: https://example.com/image.jpg\n")
+    
+    url = input("Введи ссылку: ").strip()
+    if url:
+        image_urls.append(url)
+        save_config()
+        print(Fore.GREEN + f"✅ Картинка добавлена! Всего: {len(image_urls)}")
+    else:
+        print(Fore.RED + "❌ Ссылка не может быть пустой")
+    input(Fore.CYAN + "\nНажми Enter...")
 
 # ========== ДОБАВЛЕНИЕ ТОКЕНА ==========
 def add_token():
-    clear_screen()
-    print(BANNER)
+    print_banner()
     print(Fore.YELLOW + "🤖 ДОБАВЛЕНИЕ ТОКЕНА БОТА\n")
     print("1 токен = 1 бот")
     print("Получить токен: @BotFather → /newbot\n")
@@ -138,15 +221,13 @@ def add_token():
 
 # ========== ПРОСМОТР ТОКЕНОВ ==========
 def show_tokens():
-    clear_screen()
-    print(BANNER)
+    print_banner()
     print(Fore.CYAN + "👀 СПИСОК ТОКЕНОВ:\n")
     
     if not BOT_TOKENS:
         print(Fore.YELLOW + "Нет сохранённых токенов")
     else:
         for i, token in enumerate(BOT_TOKENS):
-            # Показываем только первые 10 и последние 5 символов
             if len(token) > 20:
                 shown = token[:10] + "..." + token[-5:]
             else:
@@ -157,8 +238,7 @@ def show_tokens():
 
 # ========== УДАЛЕНИЕ ТОКЕНА ==========
 def delete_token():
-    clear_screen()
-    print(BANNER)
+    print_banner()
     print(Fore.YELLOW + "🗑️ УДАЛЕНИЕ ТОКЕНА\n")
     
     if not BOT_TOKENS:
@@ -187,8 +267,7 @@ def delete_token():
 def edit_api():
     global API_ID, API_HASH
     
-    clear_screen()
-    print(BANNER)
+    print_banner()
     print(Fore.YELLOW + "⚙️ НАСТРОЙКИ API\n")
     print("Получить на https://my.telegram.org/apps\n")
     
@@ -210,14 +289,15 @@ def edit_api():
 
 # ========== СТАТУС ==========
 def show_status():
-    clear_screen()
-    print(BANNER)
+    print_banner()
     print(Fore.MAGENTA + "📊 СТАТУС:\n")
     print(f"API ID: {API_ID}")
     print(f"API HASH: {API_HASH[:5]}...{API_HASH[-5:]}")
     print(f"Ботов в конфиге: {len(BOT_TOKENS)}")
     print(f"Активных сессий: {len(clients)}")
     print(f"Сообщение: {MESSAGE}")
+    print(f"Режим спама: {'🖼️ КАРТИНКИ' if spam_mode == 'image' else '📝 ТЕКСТ'}")
+    print(f"Картинок в базе: {len(image_urls)}")
     print(f"Задержка: {BURST_DELAY} сек")
     print(f"Атака активна: {'ДА' if bomb_active else 'НЕТ'}")
     print(f"Всего отправлено: {total_messages}")
@@ -225,25 +305,19 @@ def show_status():
 
 # ========== ИНСТРУКЦИЯ ==========
 def show_help():
-    clear_screen()
-    print(BANNER)
+    print_banner()
     print(Fore.BLUE + "📖 ИНСТРУКЦИЯ:\n")
     print("1️⃣ API КЛЮЧИ:")
     print("   • https://my.telegram.org/apps")
-    print("   • Создай приложение → получи API ID и HASH\n")
     print("2️⃣ ТОКЕНЫ БОТОВ:")
     print("   • @BotFather → /newbot")
-    print("   • 1 токен = 1 бот")
-    print("   • Добавляй токены через меню (пункт 2)\n")
-    print("3️⃣ ЗАПУСК:")
-    print("   • Меню → пункт 1 (запустятся ВСЕ боты из списка)")
-    print("   • Добавь ботов в группу (дай права админа!)")
-    print("   • В группе напиши /bomb\n")
+    print("3️⃣ РЕЖИМЫ:")
+    print("   • ТЕКСТ: спамит текстом")
+    print("   • КАРТИНКИ: спамит картинками по ссылкам")
     print("4️⃣ КОМАНДЫ В ГРУППЕ:")
-    print("   • /bomb - начать бомбардировку 💣")
+    print("   • /bomb - начать атаку 💣")
     print("   • /stop - остановить 🛑")
-    print("   • /status - статус бота\n")
-    print("✅ ВСЁ СОХРАНЯЕТСЯ АВТОМАТИЧЕСКИ!")
+    print("   • /status - статус бота")
     input(Fore.CYAN + "\nНажми Enter...")
 
 # ========== ЗАПУСК БОТОВ ==========
@@ -251,12 +325,11 @@ async def setup_bots():
     global clients
     clients = []
     
-    clear_screen()
-    print(BANNER)
+    print_banner()
     print(Fore.YELLOW + f"\n🤖 ЗАПУСК {len(BOT_TOKENS)} БОТОВ...\n")
     
     if not BOT_TOKENS:
-        print(Fore.RED + "❌ Нет токенов! Сначала добавь через меню (пункт 2)")
+        print(Fore.RED + "❌ Нет токенов!")
         input(Fore.CYAN + "\nНажми Enter...")
         return
     
@@ -305,7 +378,14 @@ async def spam_group(chat_id):
         tasks = []
         for client in clients:
             try:
-                tasks.append(client.send_message(chat_id, MESSAGE))
+                if spam_mode == "text":
+                    tasks.append(client.send_message(chat_id, MESSAGE))
+                else:
+                    # Выбираем случайную картинку из списка
+                    if image_urls:
+                        import random
+                        url = random.choice(image_urls)
+                        tasks.append(client.send_file(chat_id, url))
             except:
                 pass
         
@@ -314,7 +394,8 @@ async def spam_group(chat_id):
                 results = await asyncio.gather(*tasks, return_exceptions=True)
                 sent = sum(1 for r in results if not isinstance(r, Exception))
                 total_messages += sent
-                print(Fore.RED + f"\r💥 БОМБАРДИРОВКА: {total_messages} | Ботов в атаке: {sent}", end="", flush=True)
+                mode_icon = "🖼️" if spam_mode == "image" else "💥"
+                print(Fore.RED + f"\r{mode_icon} БОМБАРДИРОВКА: {total_messages} | Ботов: {sent}", end="", flush=True)
             except FloodWaitError as e:
                 print(Fore.YELLOW + f"\n⏳ Флуд контроль: ждём {e.seconds}с")
                 await asyncio.sleep(e.seconds)
@@ -329,9 +410,11 @@ async def on_add(event):
     if event.user_added and event.user_id == (await event.client.get_me()).id:
         chat = await event.get_chat()
         print(Fore.GREEN + f"\n[+] Бот добавлен в {chat.title}")
+        mode_text = "🖼️ КАРТИНКИ" if spam_mode == "image" else "💥 ТЕКСТ"
         await event.client.send_message(chat.id, 
             "🔥 **BOMB BOTNET АКТИВИРОВАН** 🔥\n\n"
-            "💣 /bomb - начать бомбардировку\n"
+            f"Режим: {mode_text}\n"
+            "💣 /bomb - начать атаку\n"
             "🛑 /stop - остановить\n"
             "📊 /status - статус")
 
@@ -348,11 +431,12 @@ async def bomb_cmd(event):
     total_messages = 0
     
     bomb_animation()
+    mode_text = "🖼️ КАРТИНКИ" if spam_mode == "image" else "💥 ТЕКСТ"
     await event.reply(f"💣 **BOMB STARTED** 💣\n"
                      f"📢 Группа: {chat.title}\n"
                      f"🤖 Ботов: {len(clients)}\n"
-                     f"⚡ Скорость: {1/BURST_DELAY:.0f}/сек\n"
-                     f"💬 Сообщение: {MESSAGE}")
+                     f"⚡ Режим: {mode_text}\n"
+                     f"💬 Сообщение: {MESSAGE if spam_mode == 'text' else f'{len(image_urls)} картинок'}")
     
     print(Fore.RED + Style.BRIGHT + f"\n💥 БОМБАРДИРОВКА {chat.title} начата!")
     await spam_group(chat.id)
@@ -370,9 +454,11 @@ async def stop_cmd(event):
 @events.register(events.NewMessage(pattern='/status'))
 async def status_cmd(event):
     me = await event.client.get_me()
+    mode_text = "🖼️ КАРТИНКИ" if spam_mode == "image" else "📝 ТЕКСТ"
     await event.reply(f"📊 **Статус**\n"
                      f"🤖 @{me.username}\n"
-                     f"🔥 Атака: {'АКТИВНА' if bomb_active else 'ОЖИДАНИЕ'}\n"
+                     f"🔥 Режим: {mode_text}\n"
+                     f"💥 Атака: {'АКТИВНА' if bomb_active else 'ОЖИДАНИЕ'}\n"
                      f"📨 Отправлено: {total_messages}")
 
 # ========== ГЛАВНАЯ ==========
@@ -387,36 +473,33 @@ async def main():
         
         if choice == "1":
             await setup_bots()
-        
         elif choice == "2":
             add_token()
-        
         elif choice == "3":
             show_tokens()
-        
         elif choice == "4":
             delete_token()
-        
         elif choice == "5":
             edit_api()
-        
         elif choice == "6":
-            show_status()
-        
+            edit_message()
         elif choice == "7":
+            toggle_spam_mode()
+        elif choice == "8":
+            add_image_url()
+        elif choice == "9":
+            show_status()
+        elif choice == "10":
             clear_screen()
             print(Fore.GREEN + "✅ Экран очищен!")
             await asyncio.sleep(1)
-        
-        elif choice == "8":
+        elif choice == "11":
             show_help()
-        
         elif choice == "0":
             clear_screen()
             bomb_animation()
             print(Fore.RED + "\n👋 Пока!")
             break
-        
         else:
             print(Fore.RED + "❌ Неверный выбор!")
             await asyncio.sleep(1)
