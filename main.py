@@ -12,15 +12,15 @@ init(autoreset=True)
 # ========== ФАЙЛ КОНФИГУРАЦИИ ==========
 CONFIG_FILE = "bomb_config.json"
 
-# ========== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ==========
+# ========== ПЕРЕМЕННЫЕ ==========
 clients = []
 bomb_active = False
 target_group = None
 total_messages = 0
-spam_mode = "text"
+spam_mode = "text"  # "text" или "image"
 image_urls = []
 
-# ========== ЗАГРУЗКА/СОХРАНЕНИЕ КОНФИГА ==========
+# ========== ЗАГРУЗКА КОНФИГА ==========
 def load_config():
     global API_ID, API_HASH, BOT_TOKENS, MESSAGE, BURST_DELAY, spam_mode, image_urls
     try:
@@ -33,7 +33,6 @@ def load_config():
             BURST_DELAY = config.get('burst_delay', 0.05)
             spam_mode = config.get('spam_mode', 'text')
             image_urls = config.get('image_urls', [])
-            print(Fore.GREEN + f"✅ Конфиг загружен: {len(BOT_TOKENS)} ботов")
             return True
     except:
         API_ID = 12345
@@ -57,100 +56,156 @@ def save_config():
     }
     with open(CONFIG_FILE, 'w') as f:
         json.dump(config, f, indent=4)
-    print(Fore.GREEN + "✅ Конфиг сохранён")
 
-# ========== АНИМАЦИЯ ==========
+# ========== ОЧИСТКА ЭКРАНА ==========
 def clear_screen():
     os.system('clear' if os.name == 'posix' else 'cls')
 
-def bomb_animation():
-    print(Fore.RED + "\r💣", end="", flush=True)
-    time.sleep(0.2)
-    print(Fore.RED + "\r 💣", end="", flush=True)
-    time.sleep(0.2)
-    print(Fore.RED + "\r  💣", end="", flush=True)
-    time.sleep(0.2)
-    print(Fore.RED + Style.BRIGHT + "\r💥 BOMB LAUNCHED! 💥")
+# ========== КРАСНЫЙ ГРАДИЕНТ ==========
+def gradient_red(text):
+    colors = [91, 92, 93, 94, 95, 96, 97]
+    result = ""
+    for i, char in enumerate(text):
+        color = colors[i % len(colors)]
+        result += f"\033[{color}m{char}"
+    return result + "\033[0m"
 
 # ========== БАННЕР ==========
-BANNER = Fore.RED + """
+BANNER_TEXT = """
 ██████╗░░█████╗░███╗░░░███╗██████╗░
 ██╔══██╗██╔══██╗████╗░████║██╔══██╗
 ██████╦╝██║░░██║██╔████╔██║██████╦╝
 ██╔══██╗██║░░██║██║╚██╔╝██║██╔══██╗
 ██████╦╝╚█████╔╝██║░╚═╝░██║██████╦╝
 ╚═════╝░░╚════╝░╚═╝░░░░░╚═╝╚═════╝░
-""" + Fore.CYAN + """
-╔══════════════════════════════════════╗
-║         BOMB BOTNET v5.2             ║
-║         **РАБОЧАЯ ВЕРСИЯ**           ║
-║            by @DADILK                ║
-╚══════════════════════════════════════╝
-""" + Fore.RESET
+"""
 
 def print_banner():
     clear_screen()
-    print(BANNER)
+    for line in BANNER_TEXT.split('\n'):
+        print(gradient_red(line))
+    print(Fore.CYAN + """
+╔══════════════════════════════════════╗
+║         BOMB BOTNET v6.0             ║
+║         PREMIUM EDITION              ║
+║            by @DADILK                ║
+╚══════════════════════════════════════╝
+""" + Fore.RESET)
 
-# ========== ОБРАБОТЧИКИ СОБЫТИЙ ==========
-# ВАЖНО: Обработчики должны быть определены ДО того, как добавляются в клиента
+# ========== АНИМАЦИЯ БОМБЫ ==========
+def bomb_animation():
+    for _ in range(3):
+        print(Fore.RED + "\r💣", end="", flush=True)
+        time.sleep(0.2)
+        print(Fore.RED + "\r 💣", end="", flush=True)
+        time.sleep(0.2)
+        print(Fore.RED + "\r  💣", end="", flush=True)
+        time.sleep(0.2)
+    print(Fore.RED + Style.BRIGHT + "\r💥 BOMB LAUNCHED! 💥")
 
-async def on_add(event):
-    """Когда бота добавляют в группу"""
-    if event.user_added and event.user_id == (await event.client.get_me()).id:
-        chat = await event.get_chat()
-        print(Fore.GREEN + f"\n[+] Бот добавлен в {chat.title}")
-        await event.client.send_message(chat.id, 
-            "🔥 **BOMB BOTNET АКТИВИРОВАН** 🔥\n\n"
-            "💣 /bomb - начать атаку\n"
-            "🛑 /stop - остановить\n"
-            "📊 /status - статус")
-
-async def bomb_cmd(event):
-    """Команда /bomb - начало атаки"""
-    global bomb_active, target_group, total_messages
+# ========== НАСТРОЙКА БОТОВ ==========
+async def setup_bots():
+    global clients
+    clients = []
     
-    if bomb_active:
-        await event.reply("⚠️ Бомбардировка уже идёт!")
+    print_banner()
+    print(Fore.YELLOW + f"\n🤖 ЗАПУСК {len(BOT_TOKENS)} БОТОВ...\n")
+    
+    if not BOT_TOKENS:
+        print(Fore.RED + "❌ Нет токенов!")
+        input(Fore.CYAN + "\nНажми Enter...")
         return
     
-    chat = await event.get_chat()
-    target_group = chat.id
-    bomb_active = True
-    total_messages = 0
+    for i, token in enumerate(BOT_TOKENS):
+        try:
+            if not token or token == ".":
+                continue
+                
+            client = TelegramClient(f'session_bot_{i}', API_ID, API_HASH)
+            await client.start(bot_token=token)
+            me = await client.get_me()
+            
+            # Добавляем обработчики
+            @client.on(events.ChatAction)
+            async def on_add(event):
+                if event.user_added and event.user_id == (await event.client.get_me()).id:
+                    chat = await event.get_chat()
+                    print(Fore.GREEN + f"\n[+] Бот добавлен в {chat.title}")
+                    mode_text = "🖼️ КАРТИНКИ" if spam_mode == "image" else "💥 ТЕКСТ"
+                    await event.client.send_message(chat.id, 
+                        "🔥 **BOMB BOTNET АКТИВИРОВАН** 🔥\n\n"
+                        f"Режим: {mode_text}\n"
+                        f"⏱️ КД: {BURST_DELAY}с\n"
+                        "💣 /bomb - начать атаку\n"
+                        "🛑 /stop - остановить\n"
+                        "📊 /status - статус")
+            
+            @client.on(events.NewMessage(pattern='/bomb'))
+            async def bomb_cmd(event):
+                global bomb_active, target_group, total_messages
+                if bomb_active:
+                    await event.reply("⚠️ Бомбардировка уже идёт!")
+                    return
+                
+                chat = await event.get_chat()
+                target_group = chat.id
+                bomb_active = True
+                total_messages = 0
+                
+                bomb_animation()
+                mode_text = "🖼️ КАРТИНКИ" if spam_mode == "image" else "💥 ТЕКСТ"
+                await event.reply(f"💣 **BOMB STARTED** 💣\n"
+                                 f"📢 Группа: {chat.title}\n"
+                                 f"🤖 Ботов: {len(clients)}\n"
+                                 f"⚡ Режим: {mode_text}\n"
+                                 f"⏱️ КД: {BURST_DELAY}с\n"
+                                 f"💬 Сообщение: {MESSAGE if spam_mode == 'text' else f'{len(image_urls)} картинок'}")
+                
+                print(Fore.RED + Style.BRIGHT + f"\n💥 БОМБАРДИРОВКА {chat.title} начата!")
+                asyncio.create_task(spam_group(chat.id))
+            
+            @client.on(events.NewMessage(pattern='/stop'))
+            async def stop_cmd(event):
+                global bomb_active, total_messages
+                if bomb_active:
+                    bomb_active = False
+                    await event.reply(f"🛑 **BOMB STOPPED**\n📊 Отправлено: {total_messages}\n\n0. ⬅️ exit")
+                    print(Fore.YELLOW + f"\n⛔ Атака остановлена. Всего: {total_messages}")
+                    print(Fore.CYAN + "0. ⬅️ Нажми Enter для возврата в меню...")
+                else:
+                    await event.reply("❌ Нет активной атаки")
+            
+            @client.on(events.NewMessage(pattern='/status'))
+            async def status_cmd(event):
+                me = await event.client.get_me()
+                mode_text = "🖼️ КАРТИНКИ" if spam_mode == "image" else "📝 ТЕКСТ"
+                await event.reply(f"📊 **Статус**\n"
+                                 f"🤖 @{me.username}\n"
+                                 f"🔥 Режим: {mode_text}\n"
+                                 f"⏱️ КД: {BURST_DELAY}с\n"
+                                 f"💥 Атака: {'АКТИВНА' if bomb_active else 'ОЖИДАНИЕ'}\n"
+                                 f"📨 Отправлено: {total_messages}")
+            
+            clients.append(client)
+            print(Fore.GREEN + f"[✓] Бот {i+1}: @{me.username}")
+            
+        except Exception as e:
+            print(Fore.RED + f"[✗] Бот {i+1} ошибка: {e}")
     
-    print(Fore.RED + Style.BRIGHT + f"\n💥 БОМБАРДИРОВКА {chat.title} начата!")
-    await event.reply(f"💣 **BOMB STARTED** 💣\n"
-                     f"📢 Группа: {chat.title}\n"
-                     f"🤖 Ботов: {len(clients)}\n"
-                     f"⏱️ КД: {BURST_DELAY}с")
-    
-    # Запускаем спам
-    asyncio.create_task(spam_group(chat.id))
-
-async def stop_cmd(event):
-    """Команда /stop - остановка атаки"""
-    global bomb_active, total_messages
-    
-    if bomb_active:
-        bomb_active = False
-        await event.reply(f"🛑 **BOMB STOPPED**\n📊 Отправлено: {total_messages}")
-        print(Fore.YELLOW + f"\n⛔ Атака остановлена. Всего: {total_messages}")
+    if clients:
+        print(Fore.MAGENTA + f"\n✅ ЗАПУЩЕНО БОТОВ: {len(clients)}/{len(BOT_TOKENS)}")
+        print(Fore.CYAN + "\n🔥 БОТНЕТ АКТИВЕН 🔥")
+        print("📱 Добавь ботов в группы")
+        print("💣 Введи /bomb в группе для атаки")
+        print("🛑 /stop для остановки")
+        print(Fore.RED + "⛔ Ctrl+C для возврата в меню\n")
+        
+        await asyncio.gather(*[client.run_until_disconnected() for client in clients])
     else:
-        await event.reply("❌ Нет активной атаки")
+        print(Fore.RED + "❌ Не удалось запустить ни одного бота!")
+        input(Fore.CYAN + "\nНажми Enter...")
 
-async def status_cmd(event):
-    """Команда /status - статус бота"""
-    me = await event.client.get_me()
-    mode_text = "🖼️ КАРТИНКИ" if spam_mode == "image" else "📝 ТЕКСТ"
-    await event.reply(f"📊 **Статус**\n"
-                     f"🤖 @{me.username}\n"
-                     f"🔥 Режим: {mode_text}\n"
-                     f"⏱️ КД: {BURST_DELAY}с\n"
-                     f"💥 Атака: {'АКТИВНА' if bomb_active else 'ОЖИДАНИЕ'}\n"
-                     f"📨 Отправлено: {total_messages}")
-
-# ========== СПАМ ==========
+# ========== ФУНКЦИЯ СПАМА ==========
 async def spam_group(chat_id):
     global bomb_active, total_messages
     
@@ -172,7 +227,8 @@ async def spam_group(chat_id):
                 results = await asyncio.gather(*tasks, return_exceptions=True)
                 sent = sum(1 for r in results if not isinstance(r, Exception))
                 total_messages += sent
-                print(Fore.RED + f"\r💥 БОМБАРДИРОВКА: {total_messages} | Ботов: {sent}", end="", flush=True)
+                mode_icon = "🖼️" if spam_mode == "image" else "💥"
+                print(Fore.RED + f"\r{mode_icon} БОМБАРДИРОВКА: {total_messages} | Ботов: {sent} | КД: {BURST_DELAY}с", end="", flush=True)
             except FloodWaitError as e:
                 print(Fore.YELLOW + f"\n⏳ Флуд контроль: ждём {e.seconds}с")
                 await asyncio.sleep(e.seconds)
@@ -181,62 +237,13 @@ async def spam_group(chat_id):
         
         await asyncio.sleep(BURST_DELAY)
 
-# ========== ЗАПУСК БОТОВ ==========
-async def setup_bots():
-    global clients
-    clients = []
-    
-    print_banner()
-    print(Fore.YELLOW + f"\n🤖 ЗАПУСК {len(BOT_TOKENS)} БОТОВ...\n")
-    
-    if not BOT_TOKENS:
-        print(Fore.RED + "❌ Нет токенов!")
-        input(Fore.CYAN + "\nНажми Enter...")
-        return
-    
-    for i, token in enumerate(BOT_TOKENS):
-        try:
-            if not token or token == "":
-                continue
-            
-            # Создаём клиента
-            client = TelegramClient(f'session_bot_{i}', API_ID, API_HASH)
-            await client.start(bot_token=token)
-            me = await client.get_me()
-            
-            # Добавляем обработчики КАЖДОМУ клиенту
-            client.add_event_handler(on_add, events.ChatAction)
-            client.add_event_handler(bomb_cmd, events.NewMessage(pattern='/bomb'))
-            client.add_event_handler(stop_cmd, events.NewMessage(pattern='/stop'))
-            client.add_event_handler(status_cmd, events.NewMessage(pattern='/status'))
-            
-            clients.append(client)
-            print(Fore.GREEN + f"[✓] Бот {i+1}: @{me.username}")
-            
-        except Exception as e:
-            print(Fore.RED + f"[✗] Бот {i+1} ошибка: {e}")
-    
-    if clients:
-        print(Fore.MAGENTA + f"\n✅ ЗАПУЩЕНО БОТОВ: {len(clients)}/{len(BOT_TOKENS)}")
-        print(Fore.CYAN + "\n🔥 БОТНЕТ АКТИВЕН 🔥")
-        print("📱 Добавь ботов в группы")
-        print("💣 Введи /bomb в группе для атаки")
-        print("🛑 /stop для остановки")
-        print(Fore.RED + "⛔ Ctrl+C для возврата в меню\n")
-        
-        # Держим всех ботов в работе
-        await asyncio.gather(*[client.run_until_disconnected() for client in clients])
-    else:
-        print(Fore.RED + "❌ Не удалось запустить ни одного бота!")
-        input(Fore.CYAN + "\nНажми Enter...")
-
 # ========== МЕНЮ ==========
 def show_menu():
     print_banner()
     mode_display = "🖼️ КАРТИНКИ" if spam_mode == "image" else "📝 ТЕКСТ"
     print(Fore.CYAN + f"\n📋 ГЛАВНОЕ МЕНЮ (Режим: {mode_display} | КД: {BURST_DELAY}с):\n")
     print(Fore.WHITE + "1. 🚀 ЗАПУСТИТЬ БОТНЕТ")
-    print("2. 🤖 ДОБАВИТЬ ТОКЕН БОТА")
+    print("2. 🤖 ДОБАВИТЬ ТОКЕН")
     print("3. 👀 ПОСМОТРЕТЬ ТОКЕНЫ")
     print("4. 🗑️ УДАЛИТЬ ТОКЕН")
     print("5. ⚙️ НАСТРОЙКИ API")
@@ -255,7 +262,7 @@ def add_token():
     print_banner()
     print(Fore.YELLOW + "🤖 ДОБАВЛЕНИЕ ТОКЕНА\n")
     token = input("Введи токен: ").strip()
-    if token:
+    if token and token != ".":
         BOT_TOKENS.append(token)
         save_config()
         print(Fore.GREEN + f"✅ Токен добавлен! Всего: {len(BOT_TOKENS)}")
@@ -326,10 +333,12 @@ def toggle_spam_mode():
     if choice == "1":
         spam_mode = "text"
         save_config()
+        print(Fore.GREEN + "✅ Текстовый режим")
     elif choice == "2":
         if image_urls:
             spam_mode = "image"
             save_config()
+            print(Fore.GREEN + "✅ Режим картинок")
         else:
             print(Fore.YELLOW + "⚠️ Сначала добавь картинки!")
     input(Fore.CYAN + "\nНажми Enter...")
@@ -354,6 +363,7 @@ def edit_delay():
         if new_delay >= 0:
             BURST_DELAY = new_delay
             save_config()
+            print(Fore.GREEN + f"✅ КД изменено на {BURST_DELAY}с")
     except:
         print(Fore.RED + "❌ Ошибка")
     input(Fore.CYAN + "\nНажми Enter...")
@@ -364,7 +374,7 @@ def show_status():
     print(f"API ID: {API_ID}")
     print(f"Ботов в конфиге: {len(BOT_TOKENS)}")
     print(f"Активных сессий: {len(clients)}")
-    print(f"Режим: {'КАРТИНКИ' if spam_mode == 'image' else 'ТЕКСТ'}")
+    print(f"Режим: {'🖼️ КАРТИНКИ' if spam_mode == 'image' else '📝 ТЕКСТ'}")
     print(f"Картинок: {len(image_urls)}")
     print(f"КД: {BURST_DELAY}с")
     print(f"Атака: {'ДА' if bomb_active else 'НЕТ'}")
@@ -375,11 +385,13 @@ def show_help():
     print_banner()
     print(Fore.BLUE + "📖 ИНСТРУКЦИЯ:\n")
     print("1. API ключи: https://my.telegram.org/apps")
-    print("2. Токены ботов: @BotFather")
-    print("3. Команды в группе:")
-    print("   • /bomb - атака")
-    print("   • /stop - стоп")
-    print("   • /status - статус")
+    print("2. Токены ботов: @BotFather → /newbot")
+    print("3. Добавь ботов в группу (дай права админа!)")
+    print("4. Команды в группе:")
+    print("   • /bomb - начать атаку 💣")
+    print("   • /stop - остановить 🛑")
+    print("   • /status - статус бота")
+    print("5. В меню можно менять текст, КД, режим")
     input(Fore.CYAN + "\nНажми Enter...")
 
 # ========== ГЛАВНАЯ ==========
@@ -415,6 +427,7 @@ async def main():
         elif choice == "12":
             show_help()
         elif choice == "0":
+            bomb_animation()
             print(Fore.RED + "\n👋 Пока!")
             break
         else:
