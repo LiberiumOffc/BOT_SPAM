@@ -1,123 +1,82 @@
+#!/usr/bin/env python3
+# BOT SPAMER CLAN - MAIN.PY (ИСПРАВЛЕННАЯ ВЕРСИЯ)
+
 import os
-import asyncio
-from pyrogram import Client, filters
-from colorama import Fore, init, Style
+import sys
+import time
+import random
+from colorama import Fore, init
 
 init(autoreset=True)
 
-# ========== ЦЕЛЬНЫЙ ASCII АРТ ==========
-BANNER = Fore.RED + Style.BRIGHT + """
+def clear():
+    os.system('clear' if os.name == 'posix' else 'cls')
+
+def show_banner():
+    clear()
+    print(Fore.RED + """
 ██████╗░░█████╗░███╗░░░███╗██████╗░
 ██╔══██╗██╔══██╗████╗░████║██╔══██╗
 ██████╦╝██║░░██║██╔████╔██║██████╦╝
 ██╔══██╗██║░░██║██║╚██╔╝██║██╔══██╗
 ██████╦╝╚█████╔╝██║░╚═╝░██║██████╦╝
 ╚═════╝░░╚════╝░╚═╝░░░░░╚═╝╚═════╝░
-""" + Fore.CYAN + Style.BRIGHT + """
+""" + Fore.CYAN + """
 ╔══════════════════════════════════════╗
-║     BOMB SPAMER CLAN v4.2 PREMIUM    ║
-║         MULTI-BOT /bomb SPAM         ║
+║         BOT SPAMER CLAN v1.0         ║
 ║            by @DADILK                ║
 ╚══════════════════════════════════════╝
-""" + Fore.RESET
+""")
 
-# ========== ФУНКЦИЯ ОЧИСТКИ ==========
-def clear_screen():
-    os.system('clear' if os.name == 'posix' else 'cls')
+def main_menu():
+    show_banner()
+    print(Fore.YELLOW + "ГЛАВНОЕ МЕНЮ:\n")
+    print("1. 🚀 ЗАПУСТИТЬ БОМБАРДИРОВКУ")
+    print("2. 📋 ИНСТРУКЦИЯ")
+    print("3. 🧹 ОЧИСТИТЬ ЭКРАН")
+    print("0. 🚪 ВЫХОД\n")
+    
+    choice = input("👉 Выбери пункт: ")
+    return choice
 
-# ========== ПОЛУЧЕНИЕ API ДАННЫХ ==========
-def get_api_credentials():
-    clear_screen()
-    print(BANNER)
-    print(Fore.YELLOW + "🔑 НАСТРОЙКА API ДОСТУПА (нужно сделать 1 раз)\n")
-    print("1. Зайди на https://my.telegram.org")
-    print("2. Войди в аккаунт")
-    print("3. Создай приложение (APP)")
-    print("4. Скопируй API ID и API HASH\n")
-    
-    api_id = input("👉 Введите API ID (число): ").strip()
-    api_hash = input("👉 Введите API HASH (строка): ").strip()
-    
-    # Сохраняем в файл для следующих запусков
-    with open("api_config.txt", "w") as f:
-        f.write(f"{api_id}\n{api_hash}")
-    
-    print(Fore.GREEN + "\n✅ API данные сохранены в api_config.txt")
-    return int(api_id), api_hash
+def run_spam():
+    show_banner()
+    print(Fore.YELLOW + "⚙️ РЕЖИМ БОМБАРДИРОВКИ (в разработке)\n")
+    print("Скоро здесь будет полный функционал с ботами!")
+    input("\nНажми Enter, чтобы вернуться...")
 
-# ========== ЗАГРУЗКА API ДАННЫХ ==========
-def load_api_credentials():
-    try:
-        with open("api_config.txt", "r") as f:
-            lines = f.readlines()
-            api_id = int(lines[0].strip())
-            api_hash = lines[1].strip()
-            return api_id, api_hash
-    except:
-        return None, None
+def show_help():
+    show_banner()
+    print(Fore.MAGENTA + "📘 ИНСТРУКЦИЯ:\n")
+    print("1. Получи API ID и HASH на my.telegram.org")
+    print("2. Создай ботов через @BotFather")
+    print("3. Добавь ботов в группу")
+    print("4. Запусти атаку\n")
+    input("Нажми Enter, чтобы вернуться...")
 
-# ========== ВВОД ТОКЕНОВ БОТОВ ==========
-def input_tokens():
-    clear_screen()
-    print(BANNER)
-    print(Fore.YELLOW + "🤖 ВВЕДИТЕ ТОКЕНЫ БОТОВ (каждый с новой строки)")
-    print(Fore.GREEN + "Когда закончите, введите: end\n")
-    
-    tokens = []
+def main():
     while True:
-        token = input("🔑 Токен > ").strip()
-        if token.lower() == "end":
-            break
-        if token:
-            tokens.append(token)
-            print(Fore.GREEN + f"✓ Токен {len(tokens)} добавлен")
-    
-    print(Fore.CYAN + f"\n✅ Всего ботов: {len(tokens)}")
-    return tokens
+        choice = main_menu()
+        
+        if choice == "1":
+            run_spam()
+        elif choice == "2":
+            show_help()
+        elif choice == "3":
+            clear()
+            print(Fore.GREEN + "✅ Экран очищен!")
+            time.sleep(1)
+        elif choice == "0":
+            clear()
+            print(Fore.RED + "Выход...")
+            sys.exit(0)
+        else:
+            print(Fore.RED + "❌ Неверный выбор!")
+            time.sleep(1)
 
-# ========== НАСТРОЙКИ ГРУППЫ ==========
-def input_group_settings():
-    print(Fore.YELLOW + "\n⚙️ НАСТРОЙКИ АТАКИ:")
-    print(Fore.WHITE + "(можно ввести username: @chat или ID: -1001234567890)")
-    group_input = input("📢 Группа (username или ID): ").strip()
-    
-    # Если ввели цифровой ID (отрицательный для групп)
-    if group_input.startswith('-') and group_input[1:].isdigit():
-        group_id = int(group_input)
-        print(Fore.GREEN + f"✓ Распознан ID группы: {group_id}")
-    else:
-        group_id = group_input
-        print(Fore.GREEN + f"✓ Распознан username: {group_id}")
-    
-    message = input("💬 Текст сообщения для спама: ")
-    count = int(input("🔢 Количество сообщений на бота: "))
-    delay = float(input("⏱️ Задержка между сообщениями (сек, например 0.5): "))
-    return group_id, message, count, delay
-
-# ========== ЗАПУСК БОТОВ ==========
-async def start_bots(api_id, api_hash, tokens, group, message, count, delay):
-    clear_screen()
-    print(BANNER)
-    print(Fore.RED + Style.BRIGHT + "💣 ЗАПУСК БОМБАРДИРОВКИ 💣\n")
-    
-    active_bots = []
-    
-    for i, token in enumerate(tokens):
-        try:
-            # ВАЖНО: Теперь передаём api_id и api_hash
-            app = Client(
-                f"bot_session_{i}",
-                api_id=api_id,
-                api_hash=api_hash,
-                bot_token=token,
-                in_memory=True
-            )
-            
-            await app.start()
-            
-            # Получаем информацию о боте
-            me = await app.get_me()
-            print(Fore.GREEN + f"[✓] Бот @{me.username} (ID: {me.id}) запущен")
-            
-            # Подключаем обработчик команды /bomb
-            @app.on
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        print(Fore.RED + "\n\n⛔ Выход по Ctrl+C")
+        sys.exit(0)
