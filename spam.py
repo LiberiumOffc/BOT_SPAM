@@ -8,8 +8,8 @@ from colorama import Fore, init, Style
 init(autoreset=True)
 
 # ==================== CONFIG ====================
-API_ID = 12345                # Твой API ID
-API_HASH = "your_api_hash"    # Твой API HASH
+API_ID = 34353251                # Твой API ID
+API_HASH = "ba0b478f0713dae515ee6feec3e18998"    # Твой API HASH
 
 BOT_TOKENS = [
     ".",
