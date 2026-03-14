@@ -3,6 +3,7 @@ import asyncio
 import time
 import json
 import random
+import sys
 from telethon import TelegramClient, events
 from telethon.errors import FloodWaitError
 from colorama import Fore, init, Style
@@ -61,15 +62,58 @@ def save_config():
 def clear_screen():
     os.system('clear' if os.name == 'posix' else 'cls')
 
-# ========== 3 КРАСНЫХ ЦВЕТА ==========
-def three_red(text):
-    """Три оттенка красного: темный, яркий, светлый"""
-    colors = [91, 91, 92, 93, 94, 95, 96, 97, 91, 92, 93, 94, 95, 96]
+# ========== ТОЛЬКО 3 КРАСНЫХ ЦВЕТА ==========
+def red_banner(text):
+    """Только 3 оттенка красного: темный (91), красный (91), светло-красный (91)"""
+    colors = [91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91]
     result = ""
     for i, char in enumerate(text):
         color_code = colors[i % len(colors)]
         result += f"\033[{color_code}m{char}"
     return result + "\033[0m"
+
+# ========== АНИМАЦИЯ ЗАГРУЗКИ ==========
+def loading_spinner(text="Загрузка", duration=1):
+    frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+    end_time = time.time() + duration
+    i = 0
+    while time.time() < end_time:
+        print(Fore.YELLOW + f"\r{text} {frames[i % len(frames)]}", end="", flush=True)
+        time.sleep(0.1)
+        i += 1
+    print("\r" + " " * 30 + "\r", end="")
+
+def progress_bar(current, total, text="Прогресс"):
+    percent = int((current / total) * 100)
+    bar_length = 30
+    filled = int(bar_length * current / total)
+    bar = "█" * filled + "░" * (bar_length - filled)
+    print(Fore.CYAN + f"\r{text}: [{bar}] {percent}%", end="", flush=True)
+    if current == total:
+        print()
+
+def bomb_animation_full():
+    """Полная анимация бомбы"""
+    frames = [
+        "     💣     ",
+        "    💣      ",
+        "   💣       ",
+        "  💣        ",
+        " 💣         ",
+        "💣          ",
+        "💥 БАБАХ! 💥",
+    ]
+    for frame in frames:
+        print(Fore.RED + Style.BRIGHT + f"\r{frame}", end="", flush=True)
+        time.sleep(0.2)
+    print()
+
+def typing_effect(text, color=Fore.GREEN, delay=0.03):
+    """Эффект печатающегося текста"""
+    for char in text:
+        print(color + char, end="", flush=True)
+        time.sleep(delay)
+    print()
 
 # ========== БАННЕР ==========
 BANNER_TEXT = """
@@ -85,25 +129,15 @@ def print_banner():
     clear_screen()
     lines = BANNER_TEXT.strip().split('\n')
     for i, line in enumerate(lines):
-        print(three_red(line))
-    print(Fore.CYAN + """
+        print(red_banner(line))
+    print(Fore.RED + """
 ╔══════════════════════════════════════╗
-║         BOMB BOTNET v6.1             ║
-║         3 RED + QUICK ADD            ║
+║         BOMB BOTNET v6.2             ║
+║       3 RED + FULL ANIMATION         ║
 ║            by @DADILK                ║
 ╚══════════════════════════════════════╝
 """ + Fore.RESET)
-
-# ========== АНИМАЦИЯ БОМБЫ ==========
-def bomb_animation():
-    for _ in range(3):
-        print(Fore.RED + "\r💣", end="", flush=True)
-        time.sleep(0.2)
-        print(Fore.RED + "\r 💣", end="", flush=True)
-        time.sleep(0.2)
-        print(Fore.RED + "\r  💣", end="", flush=True)
-        time.sleep(0.2)
-    print(Fore.RED + Style.BRIGHT + "\r💥 BOMB LAUNCHED! 💥")
+    typing_effect("🔥 БОТНЕТ ЗАПУЩЕН", Fore.RED, 0.02)
 
 # ========== НАСТРОЙКА БОТОВ ==========
 async def setup_bots():
@@ -118,11 +152,14 @@ async def setup_bots():
         input(Fore.CYAN + "\nНажми Enter...")
         return
     
+    successful = 0
     for i, token in enumerate(BOT_TOKENS):
         try:
             if not token or token == ".":
                 continue
-                
+            
+            progress_bar(i, len(BOT_TOKENS), "Запуск ботов")
+            
             client = TelegramClient(f'session_bot_{i}', API_ID, API_HASH)
             await client.start(bot_token=token)
             me = await client.get_me()
@@ -154,7 +191,7 @@ async def setup_bots():
                 bomb_active = True
                 total_messages = 0
                 
-                bomb_animation()
+                bomb_animation_full()
                 mode_text = "🖼️ КАРТИНКИ" if spam_mode == "image" else "💥 ТЕКСТ"
                 await event.reply(f"💣 **BOMB STARTED** 💣\n"
                                  f"📢 Группа: {chat.title}\n"
@@ -188,14 +225,18 @@ async def setup_bots():
                                  f"📨 Отправлено: {total_messages}")
             
             clients.append(client)
-            print(Fore.GREEN + f"[✓] Бот {i+1}: @{me.username}")
+            print(Fore.GREEN + f"\r✓ Бот {i+1}: @{me.username}                   ")
+            successful += 1
             
         except Exception as e:
-            print(Fore.RED + f"[✗] Бот {i+1} ошибка: {e}")
+            print(Fore.RED + f"\r✗ Бот {i+1} ошибка: {str(e)[:50]}...          ")
+    
+    progress_bar(len(BOT_TOKENS), len(BOT_TOKENS), "Запуск ботов")
+    print()
     
     if clients:
-        print(Fore.MAGENTA + f"\n✅ ЗАПУЩЕНО БОТОВ: {len(clients)}/{len(BOT_TOKENS)}")
-        print(Fore.CYAN + "\n🔥 БОТНЕТ АКТИВЕН 🔥")
+        print(Fore.MAGENTA + f"\n✅ ЗАПУЩЕНО БОТОВ: {successful}/{len(BOT_TOKENS)}")
+        typing_effect("🔥 БОТНЕТ АКТИВЕН", Fore.CYAN, 0.02)
         print("📱 Добавь ботов в группы")
         print("💣 Введи /bomb в группе для атаки")
         print("🛑 /stop для остановки")
@@ -258,16 +299,16 @@ def show_menu():
     print("0. 🚪 ВЫХОД\n")
     print(Fore.YELLOW + f"🤖 Ботов: {len(BOT_TOKENS)} | 📸 Картинок: {len(image_urls)}")
 
-# ========== ДОБАВЛЕНИЕ ТОКЕНА (С ВОЗМОЖНОСТЬЮ ПРОДОЛЖИТЬ) ==========
+# ========== ДОБАВЛЕНИЕ ТОКЕНА ==========
 def add_token():
     print_banner()
     print(Fore.YELLOW + "🤖 ДОБАВЛЕНИЕ ТОКЕНОВ\n")
     print(Fore.CYAN + "Вводи токены по одному")
-    print("После каждого токена можно ввести еще или 0 для выхода\n")
+    print("0 - назад в меню\n")
     
     count = 0
     while True:
-        token = input(f"Токен #{len(BOT_TOKENS) + 1} (0 - назад): ").strip()
+        token = input(f"Токен #{len(BOT_TOKENS) + 1}: ").strip()
         
         if token == "0":
             break
@@ -276,13 +317,14 @@ def add_token():
             BOT_TOKENS.append(token)
             save_config()
             count += 1
+            loading_spinner("Сохранение", 0.3)
             print(Fore.GREEN + f"✅ Токен добавлен! Всего: {len(BOT_TOKENS)}")
         else:
             print(Fore.RED + "❌ Токен не может быть пустым")
     
     if count > 0:
         print(Fore.GREEN + f"\n✅ Добавлено токенов: {count}")
-    input(Fore.CYAN + "\nНажми Enter для возврата в меню...")
+    input(Fore.CYAN + "\nНажми Enter для возврата...")
 
 # ========== ПРОСМОТР ТОКЕНОВ ==========
 def show_tokens():
@@ -312,6 +354,7 @@ def delete_token():
         if 1 <= choice <= len(BOT_TOKENS):
             BOT_TOKENS.pop(choice-1)
             save_config()
+            loading_spinner("Удаление", 0.3)
             print(Fore.GREEN + f"✅ Токен {choice} удалён")
     except:
         print(Fore.RED + "❌ Ошибка")
@@ -332,6 +375,8 @@ def edit_api():
     if new_hash:
         API_HASH = new_hash
     save_config()
+    loading_spinner("Сохранение", 0.3)
+    print(Fore.GREEN + "✅ API сохранены")
     input(Fore.CYAN + "\nНажми Enter...")
 
 # ========== ИЗМЕНИТЬ ТЕКСТ ==========
@@ -343,6 +388,7 @@ def edit_message():
     if new_msg:
         MESSAGE = new_msg
         save_config()
+        loading_spinner("Сохранение", 0.3)
         print(Fore.GREEN + f"✅ Текст изменен: {MESSAGE}")
     input(Fore.CYAN + "\nНажми Enter...")
 
@@ -360,28 +406,30 @@ def toggle_spam_mode():
     if choice == "1":
         spam_mode = "text"
         save_config()
+        loading_spinner("Смена режима", 0.3)
         print(Fore.GREEN + "✅ Текстовый режим")
     elif choice == "2":
         if image_urls:
             spam_mode = "image"
             save_config()
+            loading_spinner("Смена режима", 0.3)
             print(Fore.GREEN + "✅ Режим картинок")
         else:
             print(Fore.YELLOW + "⚠️ Сначала добавь картинки (пункт 8)!")
     input(Fore.CYAN + "\nНажми Enter...")
 
-# ========== ДОБАВИТЬ КАРТИНКУ (С ВОЗМОЖНОСТЬЮ ПРОДОЛЖИТЬ) ==========
+# ========== ДОБАВИТЬ КАРТИНКУ ==========
 def add_image_url():
     global image_urls
     print_banner()
     print(Fore.YELLOW + "📸 ДОБАВЛЕНИЕ КАРТИНОК\n")
     print(Fore.CYAN + "Вводи ссылки на картинки по одной")
-    print("После каждой ссылки можно ввести еще или 0 для выхода\n")
+    print("0 - назад в меню\n")
     print("Пример: https://example.com/image.jpg\n")
     
     count = 0
     while True:
-        url = input(f"Ссылка #{len(image_urls) + 1} (0 - назад): ").strip()
+        url = input(f"Ссылка #{len(image_urls) + 1}: ").strip()
         
         if url == "0":
             break
@@ -390,13 +438,14 @@ def add_image_url():
             image_urls.append(url)
             save_config()
             count += 1
+            loading_spinner("Сохранение", 0.3)
             print(Fore.GREEN + f"✅ Картинка добавлена! Всего: {len(image_urls)}")
         else:
             print(Fore.RED + "❌ Ссылка не может быть пустой")
     
     if count > 0:
         print(Fore.GREEN + f"\n✅ Добавлено картинок: {count}")
-    input(Fore.CYAN + "\nНажми Enter для возврата в меню...")
+    input(Fore.CYAN + "\nНажми Enter для возврата...")
 
 # ========== ИЗМЕНИТЬ КД ==========
 def edit_delay():
@@ -406,12 +455,13 @@ def edit_delay():
     print(f"Текущая задержка: {BURST_DELAY}с")
     print("0.05 - быстро | 0.1-0.3 - нормально | 0.5+ - медленно\n")
     try:
-        new_delay = input(f"Новая задержка (Enter - оставить): ").strip()
+        new_delay = input(f"Новая задержка: ").strip()
         if new_delay:
             new_delay = float(new_delay)
             if new_delay >= 0:
                 BURST_DELAY = new_delay
                 save_config()
+                loading_spinner("Сохранение", 0.3)
                 print(Fore.GREEN + f"✅ КД изменено на {BURST_DELAY}с")
             else:
                 print(Fore.RED + "❌ Задержка не может быть отрицательной")
@@ -439,25 +489,20 @@ def show_help():
     print_banner()
     print(Fore.BLUE + "📖 ИНСТРУКЦИЯ:\n")
     print("1️⃣ ПОЛУЧЕНИЕ API:")
-    print("   • Зайди на https://my.telegram.org/apps")
-    print("   • Войди в аккаунт")
-    print("   • Создай приложение → получи API ID и HASH\n")
+    print("   • https://my.telegram.org/apps\n")
     print("2️⃣ ТОКЕНЫ БОТОВ:")
-    print("   • @BotFather → /newbot")
-    print("   • Скопируй токен")
-    print("   • 1 токен = 1 бот\n")
-    print("3️⃣ РЕЖИМЫ РАБОТЫ:")
-    print("   • 📝 ТЕКСТ - спам текстовыми сообщениями")
-    print("   • 🖼️ КАРТИНКИ - спам картинками по ссылкам\n")
+    print("   • @BotFather → /newbot\n")
+    print("3️⃣ РЕЖИМЫ:")
+    print("   • 📝 ТЕКСТ - спам текстом")
+    print("   • 🖼️ КАРТИНКИ - спам картинками\n")
     print("4️⃣ КОМАНДЫ В ГРУППЕ:")
-    print("   • 💣 /bomb - начать атаку")
-    print("   • 🛑 /stop - остановить атаку")
-    print("   • 📊 /status - статус бота\n")
-    print("5️⃣ СОВЕТЫ:")
-    print("   • Боты должны быть АДМИНАМИ в группе!")
-    print("   • КД 0.05 - очень быстро (риск бана)")
-    print("   • КД 0.1-0.3 - оптимально")
-    print("   • КД 0.5+ - медленно, безопасно")
+    print("   • 💣 /bomb - атака")
+    print("   • 🛑 /stop - стоп")
+    print("   • 📊 /status - статус\n")
+    print("5️⃣ КД (ЗАДЕРЖКА):")
+    print("   • 0.05 - быстро (риск бана)")
+    print("   • 0.1-0.3 - оптимально")
+    print("   • 0.5+ - медленно")
     input(Fore.CYAN + "\nНажми Enter...")
 
 # ========== ГЛАВНАЯ ==========
@@ -493,8 +538,8 @@ async def main():
         elif choice == "12":
             show_help()
         elif choice == "0":
-            bomb_animation()
-            print(Fore.RED + "\n👋 Пока!")
+            bomb_animation_full()
+            typing_effect("\n👋 Пока!", Fore.RED, 0.03)
             break
         else:
             print(Fore.RED + "❌ Неверный выбор!")
@@ -508,4 +553,4 @@ if __name__ == '__main__':
         loop = asyncio.get_event_loop()
         for client in clients:
             loop.run_until_complete(client.disconnect())
-        print(Fore.GREEN + "✅ Боты отключены")
+        typing_effect("\n✅ Боты отключены", Fore.GREEN, 0.02)
